@@ -1,0 +1,15 @@
+{
+  "dependencies": {
+    "discord.js": "^14.15.3",
+    "nodemon": "^3.1.2"
+  },
+  "name": "sadabot",
+  "module": "index.ts",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  }
+}
