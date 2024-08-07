@@ -86,44 +86,33 @@ const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_ENV);
 
 (async () => {
 	try {
-		console.log(
-			`[PROGRESS] STARTED REFRESHING ${slashcommands.length} application (/) commands`
-		);
-
-		console.log(
-			`[PROGRESS] STARTED REFRESHING ${slashcommands.length} application (/) commands`
-		);
-
-		const globalCommands = slashcommands.filter(
-			(command) => command.visibleTo === "global"
-		);
-
-		const developerCommands = slashcommands.filter(
-			(command) => command.visibleTo === "developer"
-		);
-
-    
-		const developerResponse = await rest.put(
-      Routes.applicationGuildCommands(config.clientID, config.testServerID),
-			{ body: developerCommands.map((command) => command.data) }
-		);
-    
-		console.log(
-      `[COMPLETE!] Developer commands loaded: ${developerCommands.length}`
-		);
-    
-    const globalResponse = await rest.put(
-      Routes.applicationCommands(config.clientID),
-      { body: globalCommands.map((command) => command.data) }
-    );
-
-    console.log(`[COMPLETE!] Global commands loaded: ${globalCommands.length}`);
-
-		console.log(`[COMPLETE!] Total commands loaded: ${slashcommands.length}`);
+	  console.log(`[PROGRESS] STARTED REFRESHING ${slashcommands.length} application (/) commands`);
+  
+	  const globalCommands = [];
+	  const developerCommands = [];
+  
+	  // Separate commands into global and developer
+	  slashcommands.forEach(command => {
+		if (command.visibleTo === "global") {
+		  globalCommands.push(command.data);
+		} else if (command.visibleTo === "developer") {
+		  developerCommands.push(command.data);
+		}
+	  });
+  
+	  // Batch update using Promise.all for efficiency
+	  const [globalResponse, developerResponse] = await Promise.all([
+		rest.put(Routes.applicationCommands(config.clientID), { body: globalCommands }),
+		rest.put(Routes.applicationGuildCommands(config.clientID, config.testServerID), { body: developerCommands })
+	  ]);
+  
+	  console.log(`[COMPLETE!] Global commands loaded: ${globalCommands.length}`);
+	  console.log(`[COMPLETE!] Developer commands loaded: ${developerCommands.length}`);
+	  console.log(`[COMPLETE!] Total commands loaded: ${slashcommands.length}`);
 	} catch (error) {
-		console.error(`[ERROR] something went wrong while refreshing: ${error}`);
+	  console.error(`[ERROR] Something went wrong while refreshing commands: ${error}`);
 	}
-})();
+  })();
 
 //* SLASH COMMAND HANDLER
 bot.on(Events.InteractionCreate, async (interaction) => {
