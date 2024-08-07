@@ -6,7 +6,10 @@ module.exports = {
         .setName("ping")
         .setDescription("REPLIES WITH PONG!"),
 
-    async execute(interaction) {
-        await interaction.reply("pong!")
+    async execute(bot, interaction) {
+        await interaction.reply({
+            content: "My ping is: `" + bot.ws.ping + "`ms",
+            ephemeral: true
+        })
     }
 }

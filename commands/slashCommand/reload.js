@@ -1,15 +1,16 @@
 const { SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
+    developer_only: true,
     category: 'utility',
     data: new SlashCommandBuilder()
-        .setName('reload')
-        .setDescription('Reloads a command.')
-        .addStringOption(option =>
-            option.setName('command')
-                .setDescription('The command to reload.')
-                .setRequired(true)),
-    async execute(interaction) {
+    .setName('reload')
+    .setDescription('Reloads a command.')
+    .addStringOption(option =>
+        option.setName('command')
+        .setDescription('The command to reload.')
+        .setRequired(true)),
+    async execute(bot, interaction) {
         try {
             const commandName = interaction.options.getString('command', true).toLowerCase();
             const command = interaction.client.slashcommands.get(commandName);
