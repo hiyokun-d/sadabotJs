@@ -31,88 +31,85 @@ bot.slashcommands = new Collection();
 bot.messagecommands = new Collection();
 bot.cooldowns = new Collection();
 
-// GRAB ALL THE COMMAN FOLDERS
+// GRAB ALL THE COMMAND FOLDERS
 const foldersPath = path.join(__dirname, "commands");
-
-const slashCommandPath = path.join(foldersPath, "slashCommand");
-if (existsSync(slashCommandPath)) {
-	const slashCommandFiles = readdirSync(slashCommandPath).filter((file) =>
-		file.endsWith(".js")
-	);
-	for (const file of slashCommandFiles) {
-		const filePath = path.join(slashCommandPath, file);
-		const command = require(filePath);
-		if ("data" in command && "execute" in command) {
-			const isDeveloperOnly = command.developer_only || false;
-			bot.slashcommands.set(command.data.name, command);
-
-			// slashcommands.push({
-			//   global: !isDeveloperOnly ? command.data.toJSON() : undefined,
-			//   developer: isDeveloperOnly ? command.data.toJSON() : undefined
-			// });
-
-			slashcommands.push({
-				data: command.data.toJSON(),
-				visibleTo: isDeveloperOnly ? "developer" : "global",
-			});
-		} else {
-			console.warn(
-				`[WARNING] The slash command at ${filePath} is missing a required "data" or "execute" property.`
-			);
-		}
-	}
-
-	const messageCommandPath = path.join(foldersPath, "messageCommand");
-	if (existsSync(messageCommandPath)) {
-		const messageCommandFiles = readdirSync(messageCommandPath).filter((file) =>
-			file.endsWith(".js")
-		);
-
-		for (const file of messageCommandFiles) {
-			const filePath = path.join(messageCommandPath, file);
-			const command = require(filePath);
-			if ("name" in command && "execute" in command && "prefix" in command) {
-				bot.messagecommands.set(command.name, command);
-			} else {
-				console.warn(
-					`[WARNING] The message command at ${filePath} is missing a required "name" or "execute" or "prefix", property pls check it again`
-				);
-			}
-		}
-	}
-}
-
-const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_ENV);
 
 (async () => {
 	try {
-	  console.log(`[PROGRESS] STARTED REFRESHING ${slashcommands.length} application (/) commands`);
-  
-	  const globalCommands = [];
-	  const developerCommands = [];
-  
-	  // Separate commands into global and developer
-	  slashcommands.forEach(command => {
-		if (command.visibleTo === "global") {
-		  globalCommands.push(command.data);
-		} else if (command.visibleTo === "developer") {
-		  developerCommands.push(command.data);
+		// Load slash commands
+		const slashCommandPath = path.join(foldersPath, "slashCommand");
+		if (existsSync(slashCommandPath)) {
+			const slashCommandFiles = readdirSync(slashCommandPath).filter(
+				(file) => file.endsWith(".js")
+			);
+			for (const file of slashCommandFiles) {
+				const filePath = path.join(slashCommandPath, file);
+				const command = require(filePath);
+				if ("data" in command && "execute" in command) {
+					const isDeveloperOnly = command.developer_only || false;
+					bot.slashcommands.set(command.data.name, command);
+
+					slashcommands.push({
+						data: command.data.toJSON(),
+						visibleTo: isDeveloperOnly ? "developer" : "global",
+					});
+				} else {
+					console.warn(
+						`[WARNING] The slash command at ${filePath} is missing a required "data" or "execute" property.`
+					);
+				}
+			}
 		}
-	  });
-  
-	  // Batch update using Promise.all for efficiency
-	  const [globalResponse, developerResponse] = await Promise.all([
-		rest.put(Routes.applicationCommands(config.clientID), { body: globalCommands }),
-		rest.put(Routes.applicationGuildCommands(config.clientID, config.testServerID), { body: developerCommands })
-	  ]);
-  
-	  console.log(`[COMPLETE!] Global commands loaded: ${globalCommands.length}`);
-	  console.log(`[COMPLETE!] Developer commands loaded: ${developerCommands.length}`);
-	  console.log(`[COMPLETE!] Total commands loaded: ${slashcommands.length}`);
+
+		// Load message commands
+		const messageCommandPath = path.join(foldersPath, "messageCommand");
+		if (existsSync(messageCommandPath)) {
+			const messageCommandFiles = readdirSync(messageCommandPath).filter(
+				(file) => file.endsWith(".js")
+			);
+			for (const file of messageCommandFiles) {
+				const filePath = path.join(messageCommandPath, file);
+				const command = require(filePath);
+				if ("name" in command && "execute" in command && "prefix" in command) {
+					bot.messagecommands.set(command.name, command);
+				} else {
+					console.warn(
+						`[WARNING] The message command at ${filePath} is missing a required "name" or "execute" or "prefix", property.`
+					);
+				}
+			}
+		}
+
+		const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_ENV);
+
+		console.log(`[PROGRESS] STARTED REFRESHING ${slashcommands.length} application (/) commands`);
+
+		const globalCommands = [];
+		const developerCommands = [];
+
+		// Separate commands into global and developer
+		for (const command of slashcommands) {
+			if (command.visibleTo === "global") {
+				globalCommands.push(command.data);
+			} else if (command.visibleTo === "developer") {
+				developerCommands.push(command.data);
+			}
+		}
+
+		// Batch update using Promise.all for efficiency
+		const [globalResponse, developerResponse] = await Promise.all([
+			rest.put(Routes.applicationCommands(config.clientID), { body: globalCommands }),
+			rest.put(Routes.applicationGuildCommands(config.clientID, config.testServerID), { body: developerCommands })
+		]);
+
+		console.log(`[COMPLETE!] Global commands loaded: ${globalCommands.length}`);
+		console.log(`[COMPLETE!] Developer commands loaded: ${developerCommands.length}`);
+		console.log(`[COMPLETE!] Total commands loaded: ${slashcommands.length}`);
+
 	} catch (error) {
-	  console.error(`[ERROR] Something went wrong while refreshing commands: ${error}`);
+		console.error(`[ERROR] Something went wrong while refreshing commands: ${error}`);
 	}
-  })();
+})();
 
 //* SLASH COMMAND HANDLER
 bot.on(Events.InteractionCreate, async (interaction) => {
