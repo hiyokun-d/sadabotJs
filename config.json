@@ -1,9 +1,13 @@
 {
+    "prefix": "s!",
+
     "clientID": "781770478150615060",
     "mainServerID": "1135142784634998794",
     "channelLog": "1247434959451459654",
     
     "testServerID": "838713585978966037",
     "secondTestServerID": "637489101800472586",
-    "mainServerRolesID": "1167719859296141393"
+    "mainServerRolesID": "1167719859296141393",
+
+    "masterID": "722295696903897119"
 }

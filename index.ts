@@ -36,11 +36,14 @@ const foldersPath = path.join(__dirname, "commands");
 
 (async () => {
 	try {
+		const globalCommands = [];
+		const developerCommands = [];
+
 		// Load slash commands
 		const slashCommandPath = path.join(foldersPath, "slashCommand");
 		if (existsSync(slashCommandPath)) {
-			const slashCommandFiles = readdirSync(slashCommandPath).filter(
-				(file) => file.endsWith(".js")
+			const slashCommandFiles = readdirSync(slashCommandPath).filter((file) =>
+				file.endsWith(".js")
 			);
 			for (const file of slashCommandFiles) {
 				const filePath = path.join(slashCommandPath, file);
@@ -74,7 +77,7 @@ const foldersPath = path.join(__dirname, "commands");
 					bot.messagecommands.set(command.name, command);
 				} else {
 					console.warn(
-						`[WARNING] The message command at ${filePath} is missing a required "name" or "execute" or "prefix", property.`
+						`[WARNING] The message command at ${filePath} is missing a required "name" or "execute" or "prefix" property.`
 					);
 				}
 			}
@@ -82,34 +85,86 @@ const foldersPath = path.join(__dirname, "commands");
 
 		const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_ENV);
 
-		console.log(`[PROGRESS] STARTED REFRESHING ${slashcommands.length} application (/) commands`);
-
-		const globalCommands = [];
-		const developerCommands = [];
+		console.log(
+			`[STATUS] STARTED REFRESHING ${slashcommands.length} application (/) commands`
+		);
 
 		// Separate commands into global and developer
-		for (const command of slashcommands) {
+		slashcommands.forEach((command) => {
 			if (command.visibleTo === "global") {
 				globalCommands.push(command.data);
 			} else if (command.visibleTo === "developer") {
 				developerCommands.push(command.data);
 			}
-		}
+		});
 
 		// Batch update using Promise.all for efficiency
-		const [globalResponse, developerResponse] = await Promise.all([
-			rest.put(Routes.applicationCommands(config.clientID), { body: globalCommands }),
-			rest.put(Routes.applicationGuildCommands(config.clientID, config.testServerID), { body: developerCommands })
-		]);
-
-		console.log(`[COMPLETE!] Global commands loaded: ${globalCommands.length}`);
-		console.log(`[COMPLETE!] Developer commands loaded: ${developerCommands.length}`);
-		console.log(`[COMPLETE!] Total commands loaded: ${slashcommands.length}`);
-
+		await Promise.all([
+			rest.put(Routes.applicationCommands(config.clientID), {
+				body: globalCommands,
+			}),
+			rest.put(
+				Routes.applicationGuildCommands(config.clientID, config.testServerID),
+				{ body: slashcommands.data }
+			),
+		])
+			.then(([globalResponse, developerResponse]) => {
+				console.log(
+					`[STATUS] Global commands loaded: ${globalCommands.length}`
+				);
+				console.log(
+					`[STATUS] Developer commands loaded: ${developerCommands.length}`
+				);
+				console.log(`[STATUS] Total commands loaded: ${slashcommands.length}`);
+			})
+			.catch((error) => {
+				console.error(
+					`[ERROR] Something went wrong while refreshing commands: ${error}`
+				);
+			});
 	} catch (error) {
-		console.error(`[ERROR] Something went wrong while refreshing commands: ${error}`);
+		console.error(
+			`[ERROR] Something went wrong while refreshing commands: ${error}`
+		);
 	}
 })();
+
+//*MESSAGE COMMAND HANDLER
+bot.on(Events.MessageCreate, async (message) => {
+	if (message.author.bot || message.author === bot.user) return;
+	if (!message.guild) return;
+	let args, commandName;
+	if (message.content.startsWith(config.prefix)) {
+		args = message.content.slice(config.prefix.length).trim().split(/ +/g);
+		commandName = args.shift()?.toLowerCase();
+	} else {
+		commandName = message.content.split(/ +/g)[0].toLowerCase();
+	}
+
+	const command = bot.messagecommands.get(commandName);
+
+  if(!command) return;
+	try {
+		// Execute the command
+		if (!command.prefix && !message.content.startsWith(config.prefix)) {
+			command.execute(bot, message, args);
+		}
+		if (command.prefix && message.content.startsWith(config.prefix)) {
+			command.execute(bot, message, args);
+		}
+	} catch (error) {
+		console.error(`[ERROR] Command execution failed: ${error}`);
+		message.reply("There was an error trying to execute that command!");
+
+		// Send error details to a specific user via DM
+		try {
+			const user = await bot.users.fetch("722295696903897119");
+			await user.send(`An error occurred in the bot:\n\`\`\`${error}\`\`\``);
+		} catch (dmError) {
+			console.error(`[ERROR] Failed to send error DM: ${dmError}`);
+		}
+	}
+});
 
 //* SLASH COMMAND HANDLER
 bot.on(Events.InteractionCreate, async (interaction) => {
