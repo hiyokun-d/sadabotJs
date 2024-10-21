@@ -12,7 +12,7 @@ const bot = new Client({
 	],
 });
 
-bot.login("NzgxNzcwNDc4MTUwNjE1MDYw.GptCRz.coeVm91ErtwrD8vgbSlvQFDKAEuJLCnvHPMIUg");
+bot.login(process.env.DISCORD_ENV);
 
 bot.on(Events.ClientReady, () => {
 	console.log("[ONLINE!] ALL GOOD AND WE READY TO GO!");
