@@ -2,6 +2,8 @@ const { Client, GatewayIntentBits, Collection, Events, EmbedBuilder, REST, Route
 const { readdirSync, existsSync } = require("fs");
 const path = require("path");
 const config = require("./config.json");
+const dotenv = require("dotenv");
+dotenv.config();
 
 const bot = new Client({
 	intents: [
