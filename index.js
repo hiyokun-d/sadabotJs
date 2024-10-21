@@ -1,16 +1,7 @@
-import {
-	EmbedBuilder,
-	Events,
-	REST,
-	Routes,
-	TextChannel,
-	Client,
-	Collection,
-	GatewayIntentBits,
-} from "discord.js";
-import { readdirSync, existsSync } from "node:fs";
-import path from "node:path";
-import * as config from "./config.json";
+const { Client, GatewayIntentBits, Collection, Events, EmbedBuilder, REST, Routes, TextChannel } = require("discord.js");
+const { readdirSync, existsSync } = require("fs");
+const path = require("path");
+const config = require("./config.json");
 
 const bot = new Client({
 	intents: [
@@ -20,6 +11,8 @@ const bot = new Client({
 		GatewayIntentBits.GuildMembers,
 	],
 });
+
+bot.login("NzgxNzcwNDc4MTUwNjE1MDYw.GptCRz.coeVm91ErtwrD8vgbSlvQFDKAEuJLCnvHPMIUg");
 
 bot.on(Events.ClientReady, () => {
 	console.log("[ONLINE!] ALL GOOD AND WE READY TO GO!");
@@ -143,7 +136,7 @@ bot.on(Events.MessageCreate, async (message) => {
 
 	const command = bot.messagecommands.get(commandName);
 
-  if(!command) return;
+	if (!command) return;
 	try {
 		// Execute the command
 		if (!command.prefix && !message.content.startsWith(config.prefix)) {
@@ -276,5 +269,3 @@ bot.on(Events.GuildMemberAdd, async (member) => {
 	}
 });
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-bot.login(process.env.DISCORD_ENV);
