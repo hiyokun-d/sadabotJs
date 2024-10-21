@@ -12,8 +12,6 @@ const bot = new Client({
 	],
 });
 
-bot.login(process.env.DISCORD_ENV);
-
 bot.on(Events.ClientReady, () => {
 	console.log("[ONLINE!] ALL GOOD AND WE READY TO GO!");
 });
@@ -269,3 +267,5 @@ bot.on(Events.GuildMemberAdd, async (member) => {
 	}
 });
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+bot.login(process.env.DISCORD_ENV);
