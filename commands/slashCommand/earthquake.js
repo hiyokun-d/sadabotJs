@@ -15,7 +15,6 @@ module.exports = {
       }
 
       let response = await axios.request(reqOptions);
-      console.log(response.data.data)
 
       // if (!response.data.status) interaction.reply("BMKG gak mau ngasih datanya >:(")
       const data = response.data.data
@@ -47,16 +46,16 @@ module.exports = {
         .setImage(data.shakemap)
         .setFooter({ text: 'Data disediakan oleh BMKG', iconURL: 'https://www.bmkg.go.id/asset/img/favicon.ico' })
         .setTimestamp();
-        // .addFields(
-        //   {name: "tanggal", value: response.tanggal},
-        //   {name: "jam", value: response.jam},
-        //   {name: "coordinates", value: response.coordinates},
-        // )
-        // .addFields(
-        //   {name: "lintang", value: response.lintang, inline: true },
-        //   {name: "bujur", value: response.bujur, inline: true },
-        //   {name: "magnitude", value: response.magnitude, inline: true}
-        // )
+      // .addFields(
+      //   {name: "tanggal", value: response.tanggal},
+      //   {name: "jam", value: response.jam},
+      //   {name: "coordinates", value: response.coordinates},
+      // )
+      // .addFields(
+      //   {name: "lintang", value: response.lintang, inline: true },
+      //   {name: "bujur", value: response.bujur, inline: true },
+      //   {name: "magnitude", value: response.magnitude, inline: true}
+      // )
 
       // Send the embed in the reply
       await interaction.reply({ embeds: [quakeEmbed] });
