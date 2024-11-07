@@ -11,8 +11,6 @@ const { default: axios } = require("axios");
 const xlsx = require("xlsx")
 const pdfParse = require("pdf-parse")
 const { PDFDocument } = require("pdf-lib")
-const { pipeline } = require('@huggingface/transformers');
-
 
 console.log(generateDependencyReport())
 dotenv.config();
@@ -430,16 +428,16 @@ bot.on(Events.MessageCreate, async (message) => {
     try {
       const acutalMessage = await message.reply("thinking, wait. . . .")
       message.channel.sendTyping();
-      const systemPrompt = "You are Sada, a cheerful and fun female assistant. Your master is Hiyo. You use emojis to keep things fun, clean, and informative. You're a smart friend who takes care of people in need and always responds in a short, friendly way.";
+      let systemPrompt = "You are Sada, a cheerful and fun assistant. Your master is Hiyo. You use emojis to keep things fun, clean, and informative. You're a smart friend who takes care of people in need and always responds in a short, friendly way to responds this message: ";
+      const cleanMessage = message.content.replace(`<@${bot.user.id}>`, '').trim();
 
-      let input = `${systemPrompt}\nUser: ${message.content}\nSada:`;
+      let input = `${systemPrompt} ${cleanMessage} `;
 
       let out = await hf.textGeneration({
         model: "HuggingFaceTB/SmolLM2-1.7B-Instruct",
         inputs: input,
-        parameters: { max_new_tokens: 100, temperatures: 1, device: "cuda" },
-        timeout: 1000
-      })
+        parameters: { max_new_tokens: 250, temperature: 0.9 }
+      });
 
       const answer = out.generated_text.replace(input, "").trim();
 
