@@ -1,9 +1,17 @@
-const { Client, GatewayIntentBits, Collection, Events, EmbedBuilder, REST, Routes, TextChannel } = require("discord.js");
+const { Client, GatewayIntentBits, Collection, Events, EmbedBuilder, REST, Routes, TextChannel, AttachmentBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, Attachment, InteractionResponse } = require("discord.js");
 const { readdirSync, existsSync } = require("fs");
-const { joinVoiceChannel, getVoiceConnection, generateDependencyReport } = require("@discordjs/voice")
+const { joinVoiceChannel, getVoiceConnection, generateDependencyReport, createAudioPlayer, NoSubscriberBehavior, createAudioResource } = require("@discordjs/voice")
 const path = require("path");
 const config = require("./config.json");
 const dotenv = require("dotenv");
+const { createCanvas, loadImage } = require("canvas")
+const mammtoh = require("mammoth");
+const mammoth = require("mammoth");
+const { default: axios } = require("axios");
+const xlsx = require("xlsx")
+const pdfParse = require("pdf-parse")
+const { PDFDocument } = require("pdf-lib")
+console.log(generateDependencyReport())
 dotenv.config();
 
 const bot = new Client({
@@ -18,6 +26,8 @@ const bot = new Client({
 
 bot.on(Events.ClientReady, () => {
   console.log("[ONLINE!] ALL GOOD AND WE READY TO GO!");
+  console.log(`the time that i wake up: ${new Date(bot.readyTimestamp).toLocaleString()}`)
+
 });
 
 //* COMMAND HANDLER
@@ -45,7 +55,7 @@ const foldersPath = path.join(__dirname, "commands");
         const command = require(filePath);
         if ("data" in command && "execute" in command) {
           const isDeveloperOnly = command.developer_only || false;
-          bot.slashcommands.set(command.data.name, command);
+          bot.slashcommands.set(command.data.name.toLowerCase(), command);
 
           slashcommands.push({
             data: command.data.toJSON(),
@@ -81,7 +91,7 @@ const foldersPath = path.join(__dirname, "commands");
     const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_ENV);
 
     console.log(
-      `[STATUS] STARTED REFRESHING ${slashcommands.length} application (/) commands`
+      `[STATUS] STARTED REFRESHING ${slashcommands.length} application(/) commands`
     );
 
     // Separate commands into global and developer
@@ -114,12 +124,12 @@ const foldersPath = path.join(__dirname, "commands");
       })
       .catch((error) => {
         console.error(
-          `[ERROR] Something went wrong while refreshing commands: ${error}`
+          `[ERROR] Something went wrong while refreshing commands: ${error} `
         );
       });
   } catch (error) {
     console.error(
-      `[ERROR] Something went wrong while refreshing commands: ${error}`
+      `[ERROR] Something went wrong while refreshing commands: ${error} `
     );
   }
 })();
@@ -148,13 +158,13 @@ bot.on(Events.MessageCreate, async (message) => {
       command.execute(bot, message, args);
     }
   } catch (error) {
-    console.error(`[ERROR] Command execution failed: ${error}`);
+    console.error(`[ERROR] Command execution failed: ${error} `);
     message.reply("There was an error trying to execute that command!");
 
     // Send error details to a specific user via DM
     try {
       const user = await bot.users.fetch("722295696903897119");
-      await user.send(`An error occurred in the bot:\n\`\`\`${error}\`\`\``);
+      await user.send(`An error occurred in the bot: \n\`\`\`${error}\`\`\``);
     } catch (dmError) {
       console.error(`[ERROR] Failed to send error DM: ${dmError}`);
     }
@@ -272,30 +282,139 @@ bot.on(Events.GuildMemberAdd, async (member) => {
 });
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-bot.on("voiceStateUpdate", (oldState, newState) => {
-  const voiceChannel = oldState.channel || newState.channel;
+function drawTextOnCanvas(text, pageNum) {
+  const lines = text.split('\n'); // Split text into lines
+  const linesPerPage = 30; // Number of lines per canvas page
+  const totalPages = Math.ceil(lines.length / linesPerPage); // Total number of pages
+  const pageLines = lines.slice(pageNum * linesPerPage, (pageNum + 1) * linesPerPage);
 
-  if (voiceChannel && voiceChannel.members.has(config.masterID)) {
-    joinVoiceChannel({
-      channelId: voiceChannel.id,
-      guildId: voiceChannel.guild.id,
-      adapterCreator: voiceChannel.guild.voiceAdapterCreator,
-      selfDeaf: false,
-    });
-  }
-})
+  const canvasHeight = 50 + pageLines.length * 20; // Dynamically calculate canvas height
+  const canvas = createCanvas(900, canvasHeight);
+  const ctx = canvas.getContext('2d');
 
-bot.on("voiceStateUpdate", (oldState, newState) => {
-  const voiceChannel = oldState.channel || newState.channel;
+  // Draw white background
+  ctx.fillStyle = 'white';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  if (voiceChannel) {
-    const connection = getVoiceConnection(voiceChannel.guild.id);
+  // Draw text in black
+  ctx.fillStyle = 'black';
+  ctx.font = '16px Arial';
 
-    if (!voiceChannel.members.has(config.masterID) && connection && voiceChannel.members.size === 1) { // size === 1 means only the bot is there
-      connection.destroy(); // Disconnect the bot from the voice channel
-      console.log("Bot disconnected due to empty voice channel");
+  pageLines.forEach((line, index) => {
+    ctx.fillText(line, 50, 50 + index * 20); // Draw each line on the canvas
+  });
+
+  return { canvas, totalPages }; // Return canvas and total pages for multi-page handling
+}
+
+
+function pageButton(pageNum, totalPages) {
+  const nextButton = new ButtonBuilder().setCustomId("next_page_button")
+    .setLabel(">>")
+    .setStyle(ButtonStyle.Primary)
+    .setDisabled(pageNum >= totalPages - 1)
+
+  const prevButton = new ButtonBuilder().setCustomId("prev_page_button")
+    .setLabel("<<")
+    .setStyle(ButtonStyle.Secondary)
+    .setDisabled(pageNum === 0)
+
+  return new ActionRowBuilder().addComponents(prevButton, nextButton)
+}
+
+bot.on('messageCreate', async (message) => {
+  if (message.author.bot) return;
+
+  // Check if the message has attachments
+  if (message.attachments.size > 0) {
+    const attachment = message.attachments.first();
+    const filename = attachment.name.toLowerCase();
+
+    // Check if the attachment has a valid URL
+    if (!attachment || !attachment.url) {
+      message.reply('No valid file found in the attachment.');
+      return;
+    }
+
+    try {
+      const response = await axios.get(attachment.url, { responseType: 'arraybuffer' });
+      const buffer = Buffer.from(response.data);
+
+      let textContent = '';
+      let formattingOptions = {}
+
+      // Handle PDF files
+      if (filename.endsWith(".pdf")) {
+        const data = await pdfParse(buffer);
+        textContent = data.text;
+
+        formattingOptions = { align: 'left' };
+
+        // Handle DOCX files
+      } else if (filename.endsWith('.docx')) {
+        const result = await mammoth.extractRawText({ buffer });
+        textContent = result.value;
+        formattingOptions = { align: 'left' };
+
+        // Handle Excel files
+      } else if (filename.endsWith('.xlsx') || filename.endsWith('.xls')) {
+        const workbook = xlsx.read(buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData = xlsx.utils.sheet_to_json(worksheet);
+        textContent = jsonData.map(row => JSON.stringify(row)).join('\n');
+        formattingOptions = { align: 'center' };
+      } else {
+        message.channel.send("the file is not compatible")
+        return;
+      }
+
+
+      let pageNum = 0;
+
+      // Draw the first page
+      const { canvas, totalPages } = drawTextOnCanvas(textContent, pageNum);
+      const attachmentImages = new AttachmentBuilder(canvas.toBuffer(), { name: `preview_${pageNum + 1}.png` });
+      const row = pageButton(pageNum, totalPages)
+
+      const sentMessage = await message.channel.send({
+        content: "PREVIEW OF THE FILE",
+        files: [attachmentImages],
+        components: [row],
+      })
+
+      const filter = interaction => interaction.user.id == message.author.id
+      const collector = sentMessage.createMessageComponentCollector({ filter, time: 60000 })
+      collector.on("collect", async interaction => {
+        if (interaction.customId == "next_page_button") {
+          pageNum++;
+        } else if (interaction.customId == 'prev_page_button') {
+          pageNum--;
+        }
+
+        const { canvas } = drawTextOnCanvas(textContent, pageNum)
+        const newImage = new AttachmentBuilder(canvas.toBuffer(), { name: `preview_${pageNum + 1}.png` })
+
+        await interaction.update({
+          content: `PREVIEW ${pageNum + 1}/${totalPages}`,
+          files: [newImage],
+          components: [pageButton(pageNum, totalPages)]
+        })
+      })
+
+      collector.on("end", async () => {
+        await sentMessage.edit({ components: [], content: "you can't preview this file again" })
+      })
+
+    } catch (error) {
+      console.error('[ERROR] Error processing file:', error);
+      const user = await bot.users.fetch(config.masterID.toString());
+      await user.send(`An error occurred in the bot:\n\`\`\`${error}\`\`\``);
     }
   }
 });
+
+bot.login(process.env.DISCORD_ENV);
+
 
 bot.login(process.env.DISCORD_ENV);
