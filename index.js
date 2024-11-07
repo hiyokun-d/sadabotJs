@@ -11,6 +11,9 @@ const { default: axios } = require("axios");
 const xlsx = require("xlsx")
 const pdfParse = require("pdf-parse")
 const { PDFDocument } = require("pdf-lib")
+const { pipeline } = require('@huggingface/transformers');
+
+
 console.log(generateDependencyReport())
 dotenv.config();
 
@@ -24,11 +27,16 @@ const bot = new Client({
   ],
 });
 
-bot.on(Events.ClientReady, () => {
-  console.log("[ONLINE!] ALL GOOD AND WE READY TO GO!");
-  console.log(`the time that i wake up: ${new Date(bot.readyTimestamp).toLocaleString()}`)
+let hf;
 
-});
+bot.on(Events.ClientReady, async () => {
+  console.log("[ONLINE!] ALL GOOD AND WE READY TO GO!");
+  console.log(`[ONLINE!] the time that i wake up: ${new Date(bot.readyTimestamp).toLocaleString()}`);
+  console.log("[MODE-AI] Waiting for sada to wake up")
+  const { HfInference } = await import("@huggingface/inference")
+  hf = new HfInference(process.env.HUGGING_API)
+  console.log("[MODE-AI] Sada is Online and ready to fully assist you")
+})
 
 //* COMMAND HANDLER
 const slashcommands = [];
@@ -414,7 +422,40 @@ bot.on('messageCreate', async (message) => {
   }
 });
 
-bot.login(process.env.DISCORD_ENV);
+bot.on(Events.MessageCreate, async (message) => {
+  if (message.author.bot) return; // Ignore bot messages
+  if (message.author.id != config.masterID) return
+  if (message.author.id != config.masterID && message.channel.type !== "dm") return
 
+  try {
+    const acutalMessage = await message.reply("thinking, wait. . . .")
+    message.channel.sendTyping();
+    const systemPrompt = "You are Sada, a cheerful and fun female assistant. Your master is Hiyo. You use emojis to keep things fun, clean, and informative. You're a smart friend who takes care of people in need and always responds in a short, friendly way.";
+
+    let input = `${systemPrompt}\nUser: ${message.content}\nSada:`;
+
+    let out = await hf.textGeneration({
+      model: "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+      inputs: input,
+      parameters: { max_new_tokens: 100, temperatures: 1, device: "cuda" },
+      timeout: 1000
+    })
+
+    const answer = out.generated_text.replace(input, "").trim();
+
+    message.channel.sendTyping();
+
+
+    if (answer)
+      await acutalMessage.edit(answer)
+    else acutalMessage.edit("kesalahan berpikir")
+  } catch (error) {
+    console.error("[ERROR] Failed to generate text:", error.response ? error.response.data : error.message);
+    console.error("[ERROR] Failed to generate text:", error);
+    message.channel.send("Sorry, something went wrong while generating the text!");
+    const user = await bot.users.fetch(config.masterID.toString());
+    await user.send(`An error occurred in the bot:\n\`\`\`${error}\`\`\``);
+  }
+});
 
 bot.login(process.env.DISCORD_ENV);
