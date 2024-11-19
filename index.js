@@ -328,7 +328,7 @@ function pageButton(pageNum, totalPages) {
   return new ActionRowBuilder().addComponents(prevButton, nextButton)
 }
 
-bot.on('messageCreate', async (message) => {
+bot.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
 
   // Check if the message has attachments
@@ -420,41 +420,61 @@ bot.on('messageCreate', async (message) => {
   }
 });
 
+
+// Sentiment analysis using Hugging Face
+async function analyzeSentiment(data) {
+  const response = await hf.textClassification({
+    model: 'SamLowe/roberta-base-go_emotions',
+    inputs: data
+  });
+
+  console.log(response)
+  return response;
+}
+
 bot.on(Events.MessageCreate, async (message) => {
-  if (message.author.bot) return; // Ignore bot messages
-  if (message.author.id != config.masterID) return
-  if (message.author.id != config.masterID && message.channel.type !== "dm") return
+  if (message.author.bot) return;
+  //if (message.author.id !== config.masterID) return; // Limit to specific user (master)
+
   if (message.mentions.has(bot.user) || (message.reference && message.reference.messageID === bot.user.id)) {
     try {
       const acutalMessage = await message.reply("thinking, wait. . . .")
       message.channel.sendTyping();
-      let systemPrompt = "You are Sada, a cheerful and fun assistant. Your master is Hiyo. You use emojis to keep things fun, clean, and informative. You're a smart friend who takes care of people in need and always responds in a short, friendly way to responds this message: ";
       const cleanMessage = message.content.replace(`<@${bot.user.id}>`, '').trim();
+
+      const sentimentResult = await analyzeSentiment(cleanMessage);
+      let mood = sentimentResult[0].label
+
+      let systemPrompt = `You are Sada, your mood is positive, a cheerful and fun girl 11 years old assistant, Your master is Hiyo, You use emojis to keep things fun, clean, and informative. always responds in a short, also users mood is ${mood} and keep it friendly way to responds to this messages: `;
 
       let input = `${systemPrompt} ${cleanMessage} `;
 
+      // Call the text generation API
+      console.log(input)
       let out = await hf.textGeneration({
-        model: "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+        model: "Qwen/Qwen2.5-Coder-32B-Instruct",
         inputs: input,
-        parameters: { max_new_tokens: 250, temperature: 0.9 }
+        parameters: { max_new_tokens: 32, temperature: 0.8 }
       });
 
-      const answer = out.generated_text.replace(input, "").trim();
+      console.log("Raw output from text generation API:", out);
 
-      message.channel.sendTyping();
+      if (!out || !out.generated_text) {
+        throw new Error("No text generated");
+      }
 
+      let answer = out.generated_text.replace(input, "").trim();
 
       if (answer)
-        await acutalMessage.edit(answer)
-      else acutalMessage.edit("kesalahan berpikir")
+        await acutalMessage.edit(answer);
+      else await acutalMessage.edit("kesalahan berpikir!")
     } catch (error) {
-      console.error("[ERROR] Failed to generate text:", error.response ? error.response.data : error.message);
       console.error("[ERROR] Failed to generate text:", error);
-      message.channel.send("Sorry, something went wrong while generating the text!");
+      await message.channel.send("Sorry, something went wrong while generating the text!");
       const user = await bot.users.fetch(config.masterID.toString());
       await user.send(`An error occurred in the bot:\n\`\`\`${error}\`\`\``);
     }
   }
 });
 
-bot.login(process.env.DISCORD_ENV);
+bot.login(process.env.DISCORD_ENV)

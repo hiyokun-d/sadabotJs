@@ -6,6 +6,7 @@ const githubURL = {
   method: "GET"
 };
 
+// Fetch choices from GitHub
 async function fetchChoices() {
   try {
     const req = await axios.request(githubURL);
@@ -18,97 +19,111 @@ async function fetchChoices() {
     console.error('Error fetching choices:', error);
     return [];
   }
-} module.exports = {
+}
+
+module.exports = {
   cooldown: 3,
-  data: new SlashCommandBuilder().setName('help-onlinejudge').setDescription('Help you to answer your online judge').addStringOption(option => option.setName("chapter")
-    .setDescription("what chapter you want follow this example: D6823-FYP_CSP-AE Fundamental-JKT (chapter1)").setRequired(true)).addStringOption(option => option.setName("questions").setDescription("what answer of question do you really need?").setRequired(true)
+  data: new SlashCommandBuilder()
+    .setName('help-onlinejudge')
+    .setDescription('Help you to answer your online judge questions')
+    .addStringOption(option =>
+      option.setName("chapter")
+        .setDescription("Choose a chapter, e.g., chapter1")
+        .setRequired(true)
+    )
+    .addStringOption(option =>
+      option.setName("questions")
+        .setDescription("Choose the question you need help with")
+        .setRequired(true)
     ),
 
   async execute(bot, interaction) {
     try {
+      // Defer the reply to give more time for processing
+      await interaction.deferReply({ ephemeral: true });
+
+      // Fetch available chapters from GitHub
       const choices = await fetchChoices();
       let selectedChapter = interaction.options.getString('chapter', true);
-      const selectedQuestions = interaction.options.getString("questions", true)
+      const selectedQuestions = interaction.options.getString("questions", true).toLowerCase();
       let chapterExists;
 
+      // Handle chapter input (either numeric or prefixed with "chapter")
       if (!isNaN(selectedChapter)) {
-        chapterExists = choices.some(c => c.value === "chapter" + selectedChapter)
-        selectedChapter = `chapter${selectedChapter}`
-        console.log('formatting to chapter number')
-      } else if (selectedChapter.startsWith("chapter"))
-        chapterExists = choices.some(c => c.value === selectedChapter)
-      //
-      // https://raw.githubusercontent.com/hiyokun-d/university-task/main/chapter1/a.c
+        selectedChapter = `chapter${selectedChapter}`;
+        chapterExists = choices.some(c => c.value === selectedChapter);
+      } else if (selectedChapter.startsWith("chapter")) {
+        chapterExists = choices.some(c => c.value === selectedChapter);
+      }
 
       if (!chapterExists) {
-        return await interaction.reply({
+        return await interaction.editReply({
           embeds: [new EmbedBuilder()
             .setColor("#f72f2f")
             .setTitle("NO ANSWER! WRONG CHAPTER")
-            .setDescription(`choose one of these chapter \n ${choices.map(c => c.name).join('\n')}`)
+            .setDescription(`Choose one of these chapters:\n${choices.map(c => c.name).join('\n')}`)
             .setThumbnail("https://lms.binus.ac.id/static/media/WARNING_REV.f968abeb.png")
           ],
-          ephemeral: true
         });
       }
 
+      // Fetch questions from the selected chapter
       const URLquestions = {
         url: `https://api.github.com/repos/hiyokun-d/university-task/contents/${selectedChapter}/`,
-        method: "get"
-      }
-
-      const questionsReq = await axios.request(URLquestions)
-
+        method: "GET"
+      };
+      const questionsReq = await axios.request(URLquestions);
       const questionFilter = questionsReq.data.filter(a => a.name.endsWith(".c"));
       const questions = questionFilter.map(m => m.name);
 
-      // Check if the selected question exists in the list of questions
-      const questionExist = questions.includes(selectedQuestions + ".c"); // Change here
+      // Check if the selected question exists in the chapter
+      const questionExist = questions.includes(`${selectedQuestions}.c`);
 
       if (!questionExist) {
-        return await interaction.reply({
+        return await interaction.editReply({
           embeds: [new EmbedBuilder()
             .setColor("#f72f2f")
             .setTitle("NO ANSWER! WRONG QUESTION")
-            .setDescription(`Choose one of these questions: \n${questions.join('\n')} \n try to do not include the .c`)
+            .setDescription(`Choose one of these questions:\n${questions.join('\n')}\nTry to avoid including the ".c"`)
             .setThumbnail("https://lms.binus.ac.id/static/media/WARNING_REV.f968abeb.png")
           ],
-          ephemeral: true
         });
       }
 
+      // Fetch the code for the selected question
       const githubFullURL = {
         url: `https://raw.githubusercontent.com/hiyokun-d/university-task/main/${selectedChapter}/${selectedQuestions}.c`,
-        method: "get"
-      }
+        method: "GET"
+      };
+      const lastReq = await axios.request(githubFullURL);
+      const codeData = lastReq.data;
 
-      const lastReq = await axios.request(githubFullURL)
-      const codeData = lastReq.data
-      await interaction.reply({
+      // Send a reply to the user with the question
+      await interaction.editReply({
         embeds: [new EmbedBuilder()
           .setColor("#13cdf2")
-          .setTitle(`Code reference soal (${selectedChapter} - ${selectedQuestions})`)
-          .setDescription(`I SENDING IT TO YOUR DM CHECK YOUR DM`)
+          .setTitle(`Code Reference (${selectedChapter} - ${selectedQuestions})`)
+          .setDescription(`I’ve sent the code to your DMs! Please check your direct messages.`)
           .setTimestamp()
           .setThumbnail("https://cdn-binusacid.azureedge.net/assets/binus-2022-274-support/image/cody.gif")
         ],
-        ephemeral: true
       });
 
+      // Send the code in a DM
       await interaction.user.send({
         embeds: [new EmbedBuilder()
           .setColor("#13cdf2")
-          .setTitle(`Code reference soal (${selectedChapter} - ${selectedQuestions})`)
-          .setDescription(`Before you copy this into your code, you might want to try solving it yourself. This code is provided as a reference for how I approached this question. I trust you, buddy! \n\n\n Here the code read it wisely: \`\`\`c\n${codeData}\n\`\`\``)
+          .setTitle(`Code Reference (${selectedChapter} - ${selectedQuestions})`)
+          .setDescription(`Here is the reference code for the question. I encourage you to solve the problem yourself first. Here's the code:\n\`\`\`c\n${codeData}\n\`\`\``)
           .setTimestamp()
           .setThumbnail("https://cdn-binusacid.azureedge.net/assets/binus-2022-274-support/image/cody.gif")
         ]
       });
 
     } catch (error) {
-      console.error(error);
-      await interaction.reply({
-        content: `There was an error while executing the command: \`${error.message}\``,
+      console.error('Error processing command:', error);
+      await interaction.editReply({
+        content: `There was an error while executing this command. Please try again later.`,
         ephemeral: true
       });
     }
