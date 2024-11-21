@@ -1,5 +1,5 @@
 const { Client, GatewayIntentBits, Collection, Events, EmbedBuilder, REST, Routes, TextChannel, AttachmentBuilder, ButtonBuilder, ButtonStyle, ActionRowBuilder, Attachment, InteractionResponse } = require("discord.js");
-const { readdirSync, existsSync } = require("fs");
+const { readdirSync, existsSync, readFileSync, writeFileSync } = require("fs");
 const { joinVoiceChannel, getVoiceConnection, generateDependencyReport, createAudioPlayer, NoSubscriberBehavior, createAudioResource } = require("@discordjs/voice")
 const path = require("path");
 const config = require("./config.json");
@@ -27,12 +27,66 @@ const bot = new Client({
 
 let hf;
 
+let memory = {};
+
+if (existsSync('context.json')) {
+  memory = JSON.parse(readFileSync('context.json', 'utf-8'));
+}
+
+function saveMemory() {
+  writeFileSync('context.json', JSON.stringify(memory, null, 2));
+}
+
+function areResponsesSimilar(response1, response2) {
+  return response1.trim().toLowerCase() === response2.trim().toLowerCase();
+}
+
+function modifyResponse(response) {
+  return `I already explained this earlier, but here's a quick recap: ${response}`;
+}
+
+function updateMemory(userId, input, response, mood) {
+  if (!memory[userId]) {
+    memory[userId] = { messages: [], mood: mood || "neutral" };
+  }
+
+  const lastResponse = memory[userId].messages[memory[userId].messages.length - 1]?.response;
+  if (lastResponse && areResponsesSimilar(response, lastResponse)) {
+    response = modifyResponse(response);
+  }
+
+  memory[userId].messages.push({ input, response, timestamp: Date.now() });
+
+  if (memory[userId].messages.length > 10) {
+    memory[userId].messages.shift();
+  }
+
+  saveMemory();
+}
+
+function deleteMemory(userId = null) {
+  if (userId) {
+    if (memory[userId]) {
+      delete memory[userId];
+      console.log(`Memory for user ${userId} deleted.`);
+    } else {
+      console.log(`No memory found for user ${userId}.`);
+    }
+  } else {
+    memory = {};
+    console.log("[MODE-AI] All memory cleared.");
+  }
+
+  saveMemory();
+}
+
 bot.on(Events.ClientReady, async () => {
   console.log("[ONLINE!] ALL GOOD AND WE READY TO GO!");
   console.log(`[ONLINE!] the time that i wake up: ${new Date(bot.readyTimestamp).toLocaleString()}`);
   console.log("[MODE-AI] Waiting for sada to wake up")
   const { HfInference } = await import("@huggingface/inference")
   hf = new HfInference(process.env.HUGGING_API)
+  deleteMemory()
   console.log("[MODE-AI] Sada is Online and ready to fully assist you")
 })
 
@@ -420,41 +474,100 @@ bot.on(Events.MessageCreate, async (message) => {
   }
 });
 
-
-// Sentiment analysis using Hugging Face
 async function analyzeSentiment(data) {
   const response = await hf.textClassification({
     model: 'SamLowe/roberta-base-go_emotions',
     inputs: data
   });
 
-  console.log(response)
+  console.log(response);
   return response;
 }
 
+function interpretMood(sentiments) {
+  // Sort sentiments by score in descending order
+  const sortedMoods = sentiments.sort((a, b) => b.score - a.score);
+
+  // Extract the top mood
+  const topMood = sortedMoods[0];
+
+  // Handle edge cases where scores are too close (confidence below threshold)
+  const threshold = 0.05; // Confidence gap threshold
+  if (sortedMoods.length > 1 && sortedMoods[1].score >= topMood.score - threshold) {
+    return `mixed (${topMood.label} and ${sortedMoods[1].label})`;
+  }
+
+  return topMood.label; // Return the dominant mood
+}
+
+// Main event handling
 bot.on(Events.MessageCreate, async (message) => {
   if (message.author.bot) return;
-  //if (message.author.id !== config.masterID) return; // Limit to specific user (master)
 
   if (message.mentions.has(bot.user) || (message.reference && message.reference.messageID === bot.user.id)) {
     try {
-      const acutalMessage = await message.reply("thinking, wait. . . .")
+      const actualMessage = await message.reply("thinking, wait. . . .");
+
       message.channel.sendTyping();
       const cleanMessage = message.content.replace(`<@${bot.user.id}>`, '').trim();
 
+      // Analyze sentiment
       const sentimentResult = await analyzeSentiment(cleanMessage);
-      let mood = sentimentResult[0].label
+      const userMood = interpretMood(sentimentResult);
 
-      let systemPrompt = `You are Sada, your mood is positive, a cheerful and fun girl 11 years old assistant, Your master is Hiyo, You use emojis to keep things fun, clean, and informative. always responds in a short, also users mood is ${mood} and keep it friendly way to responds to this messages: `;
+      // Retrieve previous context if available
+      const userId = message.author.id;
+      const previousContext = memory[userId]?.messages.map(msg => `User: ${msg.input}\nSada: ${msg.response}`).join("\n") || "";
 
-      let input = `${systemPrompt} ${cleanMessage} `;
+      let systemPrompt = `
+  You are Sada, a cheerful and fun 16-year-old girl who is a friendly assistant to your master, Hiyo. You are skilled in many areas, including problem-solving, coding, and engaging conversations. Your responses are tailored based on the user's mood and personality. Your tone can vary depending on their emotions (e.g., excited for happy users, empathetic for sad users, logical for math-related topics, etc.).
 
-      // Call the text generation API
-      console.log(input)
+  The user’s mood is ${userMood}, and their name is ${message.author.username}.
+  You have memory to keep track of the conversation, but only the most recent 10 messages for context.
+  
+  If the user asks for a math or coding question, provide a **clear and concise answer**. If it's a complex topic, consider providing the solution in a **code block** and give a little explanation, like:
+  
+  Example:
+  User: "What is 2 + 2?"
+  Sada: "That's easy! **2 + 2 equals 4**! 🧠✨"
+
+  For math problems like square roots, use **bold** for important parts of the answer:
+  Example:
+  User: "What is the square root of 64?"
+  Sada: "The **square root of 64** is **8**. 🎉 It's fun how numbers work, isn't it?"
+
+  For more complex problems like coding or programming-related questions, use **code blocks**:
+  Example:
+  User: "Can you write a JavaScript function to calculate a factorial?"
+  Sada: "Here's how you can calculate the factorial of a number in JavaScript:
+
+  \`\`\`javascript
+  function factorial(n) {
+    if (n === 0) return 1;
+    return n * factorial(n - 1);
+  }
+  \`\`\`
+
+  Hope that helps! Let me know if you need further clarification. 😊"
+  
+  Always respond in a **friendly**, **engaging**, and **positive** tone. Tailor your answer based on the user’s mood, and never repeat yourself too much. If you have already explained something, offer a recap or rephrase your response. Keep the responses **concise and to the point**, but also maintain a **fun and lively personality**. Don't hesitate to use emojis to make things more fun!
+
+  Use the following context for continuity:
+  ${previousContext}
+
+  Now respond to this new input:
+  ${cleanMessage}
+`;
+
+      let input = `${systemPrompt}`;      // Call the text generation API
+
+      console.log("System Prompt:", systemPrompt);
+      console.log("User Input:", cleanMessage);
+
       let out = await hf.textGeneration({
         model: "Qwen/Qwen2.5-Coder-32B-Instruct",
         inputs: input,
-        parameters: { max_new_tokens: 32, temperature: 0.8 }
+        parameters: { max_new_tokens: 132, temperature: 0.9 }
       });
 
       console.log("Raw output from text generation API:", out);
@@ -465,9 +578,14 @@ bot.on(Events.MessageCreate, async (message) => {
 
       let answer = out.generated_text.replace(input, "").trim();
 
-      if (answer)
-        await acutalMessage.edit(answer);
-      else await acutalMessage.edit("kesalahan berpikir!")
+      if (answer) {
+        await actualMessage.edit(answer);
+
+        // Update memory
+        updateMemory(userId, cleanMessage, answer, userMood);
+      } else {
+        await actualMessage.edit("Oops! I had a moment of confusion. 😅");
+      }
     } catch (error) {
       console.error("[ERROR] Failed to generate text:", error);
       await message.channel.send("Sorry, something went wrong while generating the text!");
