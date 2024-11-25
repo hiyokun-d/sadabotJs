@@ -11,6 +11,23 @@ const { default: axios } = require("axios");
 const xlsx = require("xlsx")
 const pdfParse = require("pdf-parse")
 const { PDFDocument } = require("pdf-lib")
+const dns = require("dns");
+
+async function resolveWithRetry(hostname, retries = 3, delay = 5000) {
+  for (let i = 0; i < retries; i++) {
+    try {
+      await dns.promises.lookup(hostname);  // Check if we can resolve the DNS hostname
+      return true; // If DNS resolution is successful, return true
+    } catch (err) {
+      if (i === retries - 1) {
+        console.error(`Failed to resolve ${hostname} after ${retries} attempts`);
+        throw new Error(`DNS resolution failed for ${hostname}`);
+      }
+      console.log(`Retrying DNS resolution for ${hostname}... Attempt ${i + 1}`);
+      await new Promise(resolve => setTimeout(resolve, delay));  // Wait before retrying
+    }
+  }
+}
 
 console.log(generateDependencyReport())
 dotenv.config();
@@ -57,7 +74,7 @@ function updateMemory(userId, input, response, mood) {
 
   memory[userId].messages.push({ input, response, timestamp: Date.now() });
 
-  if (memory[userId].messages.length > 10) {
+  if (memory[userId].messages.length > config.memorySize) {
     memory[userId].messages.shift();
   }
 
@@ -511,6 +528,8 @@ bot.on(Events.MessageCreate, async (message) => {
       message.channel.sendTyping();
       const cleanMessage = message.content.replace(`<@${bot.user.id}>`, '').trim();
 
+      await resolveWithRetry('discord.com');
+
       // Analyze sentiment
       const sentimentResult = await analyzeSentiment(cleanMessage);
       const userMood = interpretMood(sentimentResult);
@@ -523,7 +542,7 @@ bot.on(Events.MessageCreate, async (message) => {
   You are Sada, a cheerful and fun 16-year-old girl who is a friendly assistant to your master, Hiyo. You are skilled in many areas, including problem-solving, coding, and engaging conversations. Your responses are tailored based on the user's mood and personality. Your tone can vary depending on their emotions (e.g., excited for happy users, empathetic for sad users, logical for math-related topics, etc.).
 
   The user’s mood is ${userMood}, and their name is ${message.author.username}.
-  You have memory to keep track of the conversation, but only the most recent 10 messages for context.
+  You have memory to keep track of the conversation, but only the most recent ${config.memorySize} messages for context.
   
   If the user asks for a math or coding question, provide a **clear and concise answer**. If it's a complex topic, consider providing the solution in a **code block** and give a little explanation, like:
   
