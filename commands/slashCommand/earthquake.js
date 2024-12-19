@@ -22,11 +22,23 @@ module.exports = {
         headers: headersList,
       }
 
-      let response = await axios.request(reqOptions)
+      let response = await axios.request(reqOptions);
 
-      let cleanedData = response.data.replace(/[\u0000-\u001F\u007F]/g, '');  // Removes control characters
-      let data = JSON.parse(cleanedData).Infogempa.gempa;  // Now parse the cleaned string
+      // Check the content-type header to determine if the response is JSON or needs special handling
+      if (!response.headers['content-type'].includes('application/json')) {
+        throw new Error('API did not return JSON data');
+      }
 
+      // Check if the response is a stringified JSON
+      let data = response.data;
+      if (typeof data === 'string') {
+        // Attempt to parse the string as JSON
+        try {
+          data = JSON.parse(data);
+        } catch (err) {
+          throw new Error('Failed to parse the stringified JSON data');
+        }
+      }
       if (!data) {
         return interaction.editReply("BMKG tidak menyediakan data saat ini >:(");
       }
