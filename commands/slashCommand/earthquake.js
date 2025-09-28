@@ -22,7 +22,9 @@ module.exports = {
         headers: headersList,
       }
 
+
       let response = await axios.request(reqOptions);
+      console.log(response.data.Infogempa);
 
       // Check the content-type header to determine if the response is JSON or needs special handling
       if (!response.headers['content-type'].includes('application/json')) {
@@ -30,7 +32,7 @@ module.exports = {
       }
 
       // Check if the response is a stringified JSON
-      let data = response.data;
+      let data = response.data.Infogempa.gempa;
       if (typeof data === 'string') {
         // Attempt to parse the string as JSON
         try {
