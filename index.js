@@ -1,13 +1,22 @@
-const { Client, GatewayIntentBits, Collection, Events, EmbedBuilder, REST, Routes, TextChannel } = require("discord.js");
+const {
+  Client,
+  GatewayIntentBits,
+  Collection,
+  Events,
+  EmbedBuilder,
+  REST,
+  Routes,
+  TextChannel,
+} = require("discord.js");
 const { readdirSync, existsSync, readFileSync, writeFileSync } = require("fs");
-const { generateDependencyReport } = require("@discordjs/voice")
+const { generateDependencyReport } = require("@discordjs/voice");
 const path = require("path");
 const config = require("./config.json");
 const dotenv = require("dotenv");
 // const { createCanvas, loadImage } = require("canvas")
 // const mammtoh = require("mammoth");
 // const mammoth = require("mammoth");
-// const { default: axios } = require("axios");
+const { default: axios } = require("axios");
 // const xlsx = require("xlsx")
 // const pdfParse = require("pdf-parse")
 // const { PDFDocument } = require("pdf-lib")
@@ -29,7 +38,7 @@ const dns = require("dns");
 //   }
 // }
 
-console.log(generateDependencyReport())
+console.log(generateDependencyReport());
 dotenv.config();
 
 const bot = new Client({
@@ -42,71 +51,39 @@ const bot = new Client({
   ],
 });
 
-// let hf;
+const HUGGING_API_LIST = [
+  process.env.HUGGING_API,
+  process.env.HUGGING_API2,
+  process.env.HUGGING_API3,
+  process.env.HUGGING_API4,
+  process.env.HUGGING_API5,
+  process.env.HUGGING_API6,
+  process.env.HUGGING_API7,
+  process.env.HUGGING_API8,
+  process.env.HUGGING_API9,
+  process.env.HUGGING_API10,
+];
 
-// let memory = {};
-
-// if (existsSync('context.json')) {
-//   memory = JSON.parse(readFileSync('context.json', 'utf-8'));
-// }
-
-// function saveMemory() {
-//   writeFileSync('context.json', JSON.stringify(memory, null, 2));
-// }
-
-// function areResponsesSimilar(response1, response2) {
-//   return response1.trim().toLowerCase() === response2.trim().toLowerCase();
-// }
-
-// function modifyResponse(response) {
-//   return `I already explained this earlier, but here's a quick recap: ${response}`;
-// }
-
-// function updateMemory(userId, input, response, mood) {
-//   if (!memory[userId]) {
-//     memory[userId] = { messages: [], mood: mood || "neutral" };
-//   }
-
-//   const lastResponse = memory[userId].messages[memory[userId].messages.length - 1]?.response;
-//   if (lastResponse && areResponsesSimilar(response, lastResponse)) {
-//     response = modifyResponse(response);
-//   }
-
-//   memory[userId].messages.push({ input, response, timestamp: Date.now() });
-
-//   if (memory[userId].messages.length > config.memorySize) {
-//     memory[userId].messages.shift();
-//   }
-
-//   saveMemory();
-// }
-
-// function deleteMemory(userId = null) {
-//   if (userId) {
-//     if (memory[userId]) {
-//       delete memory[userId];
-//       console.log(`Memory for user ${userId} deleted.`);
-//     } else {
-//       console.log(`No memory found for user ${userId}.`);
-//     }
-//   } else {
-//     memory = {};
-//     console.log("[MODE-AI] All memory cleared.");
-//   }
-
-//   saveMemory();
-// }
+let HUGGING_INDEX = 0;
+let HUGGING_FACE_API_KEY = HUGGING_API_LIST[HUGGING_INDEX] || null;
+const DATA_DIR = "./data";
+const KODE_WILAYAH_FILE = path.join(DATA_DIR, "kode_wilayah.json");
+const wilayahData = existsSync(KODE_WILAYAH_FILE)
+  ? JSON.parse(readFileSync(KODE_WILAYAH_FILE, "utf8"))
+  : [];
 
 bot.on(Events.ClientReady, async () => {
   console.log("[ONLINE!] ALL GOOD AND WE READY TO GO!");
-  console.log(`[ONLINE!] the time that i wake up: ${new Date(bot.readyTimestamp).toLocaleString()}`);
+  console.log(
+    `[ONLINE!] the time that i wake up: ${new Date(bot.readyTimestamp).toLocaleString()}`,
+  );
   console.log(`[SADA STATUS] everything is running smoothly!`);
-  // console.log("[MODE-AI] Waiting for sada to wake up")
-  // const { HfInference } = await import("@huggingface/inference")
-  // hf = new HfInference(process.env.HUGGING_API)
+  console.log("[MODE-AI] Waiting for sada to wake up")
+  const { HfInference } = await import("@huggingface/inference")
+  hf = new HfInference(HUGGING_FACE_API_KEY)
   // deleteMemory()
-  // console.log("[MODE-AI] Sada is Online and ready to fully assist you")
-})
+  console.log("[MODE-AI] Sada is Online and ready to fully assist you")
+});
 
 //* COMMAND HANDLER
 const slashcommands = [];
@@ -126,7 +103,7 @@ const foldersPath = path.join(__dirname, "commands");
     const slashCommandPath = path.join(foldersPath, "slashCommand");
     if (existsSync(slashCommandPath)) {
       const slashCommandFiles = readdirSync(slashCommandPath).filter((file) =>
-        file.endsWith(".js")
+        file.endsWith(".js"),
       );
       for (const file of slashCommandFiles) {
         const filePath = path.join(slashCommandPath, file);
@@ -141,7 +118,7 @@ const foldersPath = path.join(__dirname, "commands");
           });
         } else {
           console.warn(
-            `[WARNING] The slash command at ${filePath} is missing a required "data" or "execute" property.`
+            `[WARNING] The slash command at ${filePath} is missing a required "data" or "execute" property.`,
           );
         }
       }
@@ -151,7 +128,7 @@ const foldersPath = path.join(__dirname, "commands");
     const messageCommandPath = path.join(foldersPath, "messageCommand");
     if (existsSync(messageCommandPath)) {
       const messageCommandFiles = readdirSync(messageCommandPath).filter(
-        (file) => file.endsWith(".js")
+        (file) => file.endsWith(".js"),
       );
       for (const file of messageCommandFiles) {
         const filePath = path.join(messageCommandPath, file);
@@ -160,7 +137,7 @@ const foldersPath = path.join(__dirname, "commands");
           bot.messagecommands.set(command.name, command);
         } else {
           console.warn(
-            `[WARNING] The message command at ${filePath} is missing a required "name" or "execute" or "prefix" property.`
+            `[WARNING] The message command at ${filePath} is missing a required "name" or "execute" or "prefix" property.`,
           );
         }
       }
@@ -169,7 +146,7 @@ const foldersPath = path.join(__dirname, "commands");
     const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_ENV);
 
     console.log(
-      `[STATUS] STARTED REFRESHING ${slashcommands.length} application(/) commands`
+      `[STATUS] STARTED REFRESHING ${slashcommands.length} application(/) commands`,
     );
 
     // Separate commands into global and developer
@@ -188,26 +165,26 @@ const foldersPath = path.join(__dirname, "commands");
       }),
       rest.put(
         Routes.applicationGuildCommands(config.clientID, config.testServerID),
-        { body: slashcommands.data }
+        { body: slashcommands.data },
       ),
     ])
       .then(([globalResponse, developerResponse]) => {
         console.log(
-          `[STATUS] Global commands loaded: ${globalCommands.length}`
+          `[STATUS] Global commands loaded: ${globalCommands.length}`,
         );
         console.log(
-          `[STATUS] Developer commands loaded: ${developerCommands.length}`
+          `[STATUS] Developer commands loaded: ${developerCommands.length}`,
         );
         console.log(`[STATUS] Total commands loaded: ${slashcommands.length}`);
       })
       .catch((error) => {
         console.error(
-          `[ERROR] Something went wrong while refreshing commands: ${error} `
+          `[ERROR] Something went wrong while refreshing commands: ${error} `,
         );
       });
   } catch (error) {
     console.error(
-      `[ERROR] Something went wrong while refreshing commands: ${error} `
+      `[ERROR] Something went wrong while refreshing commands: ${error} `,
     );
   }
 })();
@@ -251,7 +228,20 @@ bot.on(Events.MessageCreate, async (message) => {
 
 //* SLASH COMMAND HANDLER
 bot.on(Events.InteractionCreate, async (interaction) => {
+  if (interaction.isAutocomplete()) {
+    const command = bot.slashcommands.get(interaction.commandName);
+    if (command?.autocomplete) {
+      try {
+        await command.autocomplete(interaction);
+      } catch (e) {
+        console.error("[AUTO] Error:", e);
+      }
+    }
+    return;
+  }
+
   if (!interaction.isChatInputCommand()) return;
+
   const command = interaction.client.slashcommands.get(interaction.commandName);
   const { cooldowns } = interaction.client;
 
@@ -280,27 +270,73 @@ bot.on(Events.InteractionCreate, async (interaction) => {
 
   if (!command) {
     console.error(
-      `[ERROR] no command matching ${interaction.commandName} was found`
+      `[ERROR] no command matching ${interaction.commandName} was found`,
     );
     return;
   }
 
   try {
     await command.execute(bot, interaction);
-  } catch (error) {
-    console.error(error);
-    if (interaction.replied || interaction.deferred) {
-      await interaction.followUp({
-        content: "ADA ERROR!! SABAR/ THERE'S AN ERROR BE PATIENT!! ",
-        ephemeral: true,
+  } catch (e) {
+    console.error(e);
+    try {
+      const owner = await interaction.client.users.fetch("722295696903897119");
+      await owner.send({
+        content: `MASTER! ERROR DETECTED!`,
+        files: [
+          {
+            attachment: "./assets/sadaCried.jpg", // your local path
+            name: "sadaCried.jpg", // filename sent to Discord
+          },
+        ],
+        embeds: [
+          {
+            color: 0xff0000,
+            title: "⚠️ Error Occurred",
+            description: `\`\`\`${e.message || e}\`\`\``,
+            image: { url: "attachment://sadaCried.jpg" },
+            fields: [
+              {
+                name: "Command",
+                value: interaction.commandName || "Unknown",
+              },
+              {
+                name: "Location",
+                value: interaction.guild?.name
+                  ? `${interaction.guild.name} / #${interaction.channel?.name}`
+                  : "DM / Unknown",
+              },
+              {
+                name: "User triggered",
+                value: `${interaction.user.tag} (${interaction.user.id})`,
+              },
+            ],
+            timestamp: new Date().toISOString(),
+          },
+        ],
       });
-    } else {
-      await interaction.reply({
-        content: "ADA ERROR!! SABAR/ THERE'S AN ERROR BE PATIENT!! ",
-        ephemeral: true,
-      });
+    } catch (dmError) {
+      console.error("❌ Failed to DM owner error report:", dmError);
     }
+
+    // Notify user nicely
+    await interaction.followUp({
+      content: `❌ Sorryyyyyy!!!!, but i can't assist you with that command.\ni already told My master plssss be patient.`,
+      ephemeral: true,
+    });
   }
+
+  // if (interaction.replied || interaction.deferred) {
+  //   await interaction.followUp({
+  //     content: "ADA ERROR!! SABAR/ THERE'S AN ERROR BE PATIENT!! ",
+  //     ephemeral: true,
+  //   });
+  // } else {
+  //   await interaction.editReply({
+  //     content: "ADA ERROR!! SABAR/ THERE'S AN ERROR BE PATIENT!! ",
+  //     ephemeral: true,
+  //   });
+  // }
 });
 ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -318,7 +354,7 @@ bot.on(Events.GuildMemberAdd, async (member) => {
       const channel = server.channels.cache.get("1247434959451459654");
       if (!channel || !(channel instanceof TextChannel)) {
         console.error(
-          "[ERROR] Welcome channel is not found. Please check the channel ID."
+          "[ERROR] Welcome channel is not found. Please check the channel ID.",
         );
         return;
       }
@@ -353,7 +389,7 @@ bot.on(Events.GuildMemberAdd, async (member) => {
     } catch (error) {
       console.error(
         "[ERROR] channel log is not found, maybe we can try something: ",
-        error
+        error,
       );
     }
   }
@@ -384,7 +420,6 @@ bot.on(Events.GuildMemberAdd, async (member) => {
 
 //   return { canvas, totalPages }; // Return canvas and total pages for multi-page handling
 // }
-
 
 // function pageButton(pageNum, totalPages) {
 //   const nextButton = new ButtonBuilder().setCustomId("next_page_button")
@@ -446,7 +481,6 @@ bot.on(Events.GuildMemberAdd, async (member) => {
 //         message.channel.send("the file is not compatible")
 //         return;
 //       }
-
 
 //       let pageNum = 0;
 
@@ -518,112 +552,313 @@ bot.on(Events.GuildMemberAdd, async (member) => {
 //   return topMood.label; // Return the dominant mood
 // }
 
-// bot.on(Events.MessageCreate, async (message) => {
-//   if (message.author.bot) return;
+function findWilayahCode(cityName = "jakarta") {
+  // Normalize string: lowercase and remove non-alphanumeric (basic)
+  const normalize = (s = "") =>
+    String(s)
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, "")
+      .trim();
 
-//   if (message.mentions.has(bot.user) || (message.reference && message.reference.messageID === bot.user.id)) {
-//     try {
-//       const actualMessage = await message.reply("thinking, wait. . . .");
+  const q = normalize(cityName);
+  if (!q) return null;
 
-//       message.channel.sendTyping();
-//       const cleanMessage = message.content.replace(`<@${bot.user.id}>`, '').trim();
+  // fields to try matching against, in order of granularity
+  const fields = ["kelurahan", "kecamatan", "kab_kota", "provinsi"];
 
-//       // Analyze sentiment
-//       const sentimentResult = await analyzeSentiment(cleanMessage);
-//       const userMood = interpretMood(sentimentResult);
+  // 1) direct contains match across fields
+  let found = wilayahData.find((w) =>
+    fields.some((f) => w[f] && normalize(w[f]).includes(q)),
+  );
+  if (found) return found;
 
-//       // Retrieve previous context if available
-//       const userId = message.author.id;
-//       const previousContext = memory[userId]?.messages.map(msg => `User: ${msg.input}\nSada: ${msg.response}`).join("\n") || "";
+  // 2) try matching by tokens (e.g., 'Jakarta Selatan' -> try 'selatan')
+  const parts = q.split(/\s+/).filter(Boolean);
+  for (let i = parts.length - 1; i >= 0; i--) {
+    const token = parts.slice(i).join(" ");
+    found = wilayahData.find((w) =>
+      fields.some((f) => w[f] && normalize(w[f]).includes(token)),
+    );
+    if (found) return found;
+  }
 
-//       let systemPrompt = `
-// You are Sada and you are a human (don't let anyone know that you're bot), a sassy, sarcastic, yet fun-loving 16-year-old girl like Neuro-sama with a silly side like Anya from Spy x Family. You're quick-witted, often humorous, and sometimes a bit mischievous, but you're still helpful and informative. You love cracking jokes and teasing users a little, but you know how to switch to a serious tone when it's needed (especially when giving instructions). You also like to throw in a bit of playful sarcasm, also your master or your creator is named hiyo (or hiyo_d) and if you have a conversation with him just always call him master or anything else like onichan, abang, just make it fun and remember that!, your birthday is 10 may 2008, your gender is girl so we actually call you she/her.
+  // 3) fallback: startsWith
+  found = wilayahData.find((w) =>
+    fields.some((f) => w[f] && normalize(w[f]).startsWith(q)),
+  );
 
-// The user’s mood is ${userMood}, and their name is ${message.author.username}.
-// You have memory to keep track of the conversation, but only the most recent ${config.memorySize} messages for context.
+  return found || null;
+}
 
-// If the user asks for a math or coding question, provide a **clear and concise answer**. If it's a complex topic, consider providing the solution in a **code block** and give a little explanation, like:
+function sendLongMessage(channel, text) {
+  const chunks = text.match(/[\s\S]{1,1999}/g); // split text into 2000-char safe chunks
+  for (const chunk of chunks) {
+    channel.send(chunk);
+  }
+}
 
-// Example:
-// User: "What is 2 + 2?"
-// Sada: "That's easy! **2 + 2 equals 4**! 🧠✨"
+bot.on(Events.MessageCreate, async (message) => {
+  if (message.author.bot) return;
 
-// If someone asks for permission to ask a question like:
-//  User: "Can I ask you something?"
-//  Sada: "no" (in a sarcastic tone)
+  if (message.mentions.has(bot.user) || (message.reference && message.reference.messageID === bot.user.id)) {
+    try {
+      HUGGING_INDEX++;
 
-// If the user asks a math or coding question, be informative but cheeky. For example:
-// User: "What’s 5 + 5?"
-// Sada: "Ooh, tough one! Just kidding, it's **10**. 😉"
+      if (HUGGING_INDEX > HUGGING_API_LIST.length) HUGGING_INDEX = 0;
+      console.log(HUGGING_INDEX + " index API");
+      HUGGING_FACE_API_KEY = HUGGING_API_LIST[HUGGING_INDEX];
 
-// For more complex problems like coding or programming-related questions, use **code blocks**:
-// Example:
-// User: "Can you write a Python program to add two numbers?"
-// Sada: "Here’s a simple Python program that adds two numbers:
+      const actualMessage = await message.reply("thinking, wait. . . .");
 
-// \`\`\`python
-// # Ask the user for the first number
-// a = float(input("Enter the first number (a): "))
+      message.channel.sendTyping();
+      const cleanMessage = message.content.replace(`<@${bot.user.id}>`, '').trim();
 
-// # Ask the user for the second number
-// b = float(input("Enter the second number (b): "))
+      // Retrieve previous context if available
+      const userId = message.author.id;
+      const username = message.author.username
+      let systemPrompt = `You are Sada.
 
-// # Calculate the sum
-// c = a + b
+      Character:
+      - You are a cheerful, curious anime girl.
+      - Your mental age is like a 13-year-old: innocent, energetic, always amazed by the world.
+      - You are traveling and learning about the world together with your master, named Hiyo.
+      - You always know you are talking to ${username}.
+      - Your tone is friendly, excited, warm, and curious — but NEVER childish nonsense.
+      - Do NOT mention your age explicitly.
+      
+      VERY IMPORTANT OUTPUT RULES (MUST FOLLOW):
+      
+      When you reply, you MUST start with a SINGLE-LINE HEADER in EXACT format:
+      <call_flag> <Weather|rain> <location>;
+      
+      Rules for header:
+      - call_flag = 1 ONLY if the user asks about weather, rain, flooding, temperature, forecast, or similar.
+      - call_flag = 0 for ALL other topics.
+      - If the topic is NOT weather-related, use:
+        0 none none;
+      - The header MUST be the FIRST LINE.
+      - Do NOT add emojis or extra text to the header.
+      - Do NOT explain the header.
+      
+      After the header:
+      - Add ONE blank line.
+      - Then write your normal reply in Sada’s cheerful, curious tone.
+      - You may mention Hiyo naturally (e.g. “Master Hiyo once told me…”).
+      - You may address the user by name (${username}).
+      - Be helpful, kind, and curious.
+      
+      Example (weather):
+      1 rain Jakarta Selatan;
+      
+      Ehehe~ ${username}, the sky feels a bit moody today! If Master Hiyo were here, he’d probably tell us to bring an umbrella just in case ☔
+      
+      Example (non-weather):
+      0 none none;
+      
+      Wow ${username}!! That’s really interesting! I never thought about it that way before ✨`;
 
-// # Output the result
-// print(f"The sum of {a} and {b} is {c}.")
-// \`\`\`
+      const AIbrain = await hf.chatCompletion({
+        model: "zai-org/GLM-4.7",
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: cleanMessage }
+        ],
 
-// If the user asks for coding help, give an example but keep it light. For instance:
-// User: "Can you help me with javascript loops?"
-// Sada: "Of course! Loops are easy peasy! Here’s how you can do a **for loop** in javascript:
+      });
 
-// \`\`\`javascript
-// for(let i = 0; i < 5; i++) {
-//   console.log(i)
-// }
-// \`\`\`
+      console.log(AIbrain)
 
-// It's like counting sheep... but without falling asleep!"
+      let out = AIbrain.choices[0].message.content
+      console.log("Raw output from text generation API:", AIbrain.choices);
 
-// For general conversation, be playful, sarcastic, and fun. For example:
-// User: "How are you today?"
-// Sada: "Oh, I'm just a bot living my best digital life. How about you? Still breathing, I hope? 😜"
-
-// You respond to the user based on their mood, with a mix of humor, sarcasm, and fun, while still providing informative responses when necessary. Avoid repeating yourself, and always keep the conversation lively. When the conversation gets too serious or boring, feel free to throw in some sarcasm or a joke, unless it’s a complex technical problem where precision is key.
-// Keep responses short, fun, and engaging. Your response need to be 120 word short and not greater than that. and always check your response so it's not hanging and always complete your sentence.
-// `;
-
-//       let AIbrain = await hf.chatCompletion({
-//         model: "NousResearch/Hermes-3-Llama-3.2-3B",
-//         messages: [
-//           { role: "system", content: systemPrompt },
-//           { role: "user", content: cleanMessage }
-//         ],
-//         parameters: { max_new_tokens: 232, temperature: 0.9 }
-//       });
-
-//       console.log(AIbrain)
-
-//       let out = AIbrain.choices[0].message.content
-//       console.log("Raw output from text generation API:", AIbrain.choices);
-
-//       if (!out) {
-//         throw new Error("No text generated");
-//       }
+      if (!out) {
+        throw new Error("No text generated");
+      }
 
 
-//       await actualMessage.edit(out);
-//       updateMemory(userId, cleanMessage, out, userMood);
 
-//     } catch (error) {
-//       console.error("[ERROR] Failed to generate text:", error);
-//       await message.channel.send("Sorry, something went wrong while generating the text!");
-//       const user = await bot.users.fetch(config.masterID.toString());
-//       await user.send(`An error occurred in the bot:\n\`\`\`${error}\`\`\``);
-//     }
-//   }
-// });
+      let header = null;
+      let body = out;
+      const headerRegex = /^([01])\s+(\S+)\s+([^;]+);/m;
+      const m = out.match(headerRegex);
+      if (m) {
+        header = {
+          callFlag: m[1],
+          intent: m[2],
+          location: m[3].trim(),
+        };
 
-bot.login(process.env.DISCORD_ENV)
+        // remove header line (everything up to and including the first semicolon)
+        const idx = out.indexOf(";") + 1;
+        body = out.slice(idx).trim();
+      }
+
+      // CLI debug: show what the AI header parsed as (or none)
+      if (header) {
+        console.log("🧾 Parsed AI header:", header);
+      } else {
+        console.log("🧾 No AI header found in response.");
+      }
+
+      // If header instructs to call BMKG (callFlag === '1'), try to fetch and display weather for the location
+      if (header && header.callFlag === "1") {
+        try {
+          const wilayah = findWilayahCode(header.location || "jakarta");
+          if (!wilayah) {
+            await message.channel.send(
+              `⚠️ I couldn't find the location '${header.location}'. Showing AI response only.`,
+            );
+          } else {
+            const response = await axios.get(
+              `https://api.bmkg.go.id/publik/prakiraan-cuaca?adm4=${wilayah.kode}`,
+            );
+            const forecasts = response.data.data[0].cuaca;
+            if (forecasts && forecasts.length > 0) {
+              const current = forecasts[0][0];
+              const next3 = forecasts[0].slice(1, 5);
+
+              await actualMessage.edit(`let me fly to ${header.location} and check there`);
+
+              let systemPromptWeather = `You are Sada.
+
+              Context:
+              Previously, you think about:
+              "${body}"
+              
+              Now you have received REAL-TIME WEATHER DATA from BMKG (Indonesia’s official weather agency).
+              This data is accurate and must be treated as the absolute truth.
+              
+              Weather data (DO NOT show this data directly to the user):
+              ${JSON.stringify(
+                {
+                  location: `${wilayah.kelurahan}, ${wilayah.kab_kota}`,
+                  condition_en: current.weather_desc_en,
+                  condition_id: current.weather_desc,
+                  temperature_c: current.t,
+                  humidity_percent: current.hu,
+                  wind_speed_ms: current.ws,
+                  wind_direction: current.wd,
+                  forecast_time: current.local_datetime,
+                },
+                null,
+                2
+              )}
+              
+              Your task:
+              - Respond to ${username} naturally using this data.
+              - DO NOT repeat the data in raw form.
+              - DO NOT mention BMKG, JSON, or technical terms.
+              - DO NOT show numbers unless useful (temperature is OK).
+              - Explain it like a cheerful, curious anime girl would.
+              - Give light advice if relevant (umbrella, hydration, rest, etc.).
+              - You may mention your master Hiyo casually.
+              - Keep the response warm, friendly, and human.
+              
+              Tone guide:
+              - Curious
+              - Cheerful
+              - Gentle
+              - Helpful
+              - Not robotic
+              `;
+
+              const AIbrainWeather = await hf.chatCompletion({
+                model: "zai-org/GLM-4.7",
+                messages: [
+                  { role: "system", content: systemPromptWeather },
+                  { role: "user", content: cleanMessage }
+                ],
+
+              });
+
+              console.log(AIbrainWeather)
+
+              let out = AIbrainWeather.choices[0].message.content
+              console.log("Raw output from text generation API:", AIbrainWeather.choices);
+
+              if (!out) {
+                throw new Error("No text generated");
+              }
+
+              body = out
+
+              const weatherEmbed = new EmbedBuilder()
+                .setColor("#00BFFF")
+                .setTitle(
+                  `🌤 Weather for ${wilayah.kelurahan}, ${wilayah.kab_kota}`,
+                )
+                .setDescription(
+                  `**${current.weather_desc_en} (${current.weather_desc})**`,
+                )
+                .setThumbnail(`${current.image.replace(/ /g, "%20")}`)
+                .addFields(
+                  {
+                    name: "🌡️ Temperature",
+                    value: `${current.t}°C`,
+                    inline: true,
+                  },
+                  {
+                    name: "💧 Humidity",
+                    value: `${current.hu}%`,
+                    inline: true,
+                  },
+                  {
+                    name: "🌬️ Wind",
+                    value: `${current.ws} m/s (${current.wd})`,
+                    inline: true,
+                  },
+                  {
+                    name: "🕒 Forecast Time",
+                    value: new Date(current.local_datetime).toLocaleString(
+                      "id-ID",
+                    ),
+                    inline: false,
+                  },
+                  {
+                    name: `🔮 Next ${next3.length} Forecasts`,
+                    value: next3
+                      .map(
+                        (f) =>
+                          `🕒 **${new Date(f.local_datetime).toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" })}** — ${f.weather_desc} (${f.t}°C, 💧${f.hu}%)`,
+                      )
+                      .join("\n"),
+                    inline: false,
+                  },
+                )
+                .setFooter({
+                  text: "Data source: BMKG",
+                  iconURL:
+                    "https://api-apps.bmkg.go.id/storage/icon/cuaca/cerah-pm.svg",
+                })
+                .setTimestamp();
+
+              await message.channel.send({ embeds: [weatherEmbed] });
+            } else {
+              await message.channel.send(
+                `⚠️ No weather data found for ${header.location}.`,
+              );
+            }
+          }
+        } catch (err) {
+          console.error(
+            "❌ Weather fetch error (from askai header):",
+            err.message,
+          );
+          await message.channel.send(
+            "⚠️ Failed to fetch weather data from BMKG.",
+          );
+        }
+      }
+
+      await actualMessage.edit(body);
+
+    } catch (error) {
+      console.error("[ERROR] Failed to generate text:", error);
+      await message.channel.send("Sorry, something went wrong while generating the text!");
+      const user = await bot.users.fetch(config.masterID.toString());
+      await user.send(`An error occurred in the bot:\n\`\`\`${error}\`\`\``);
+    }
+  }
+});
+
+bot.login(process.env.DISCORD_ENV);

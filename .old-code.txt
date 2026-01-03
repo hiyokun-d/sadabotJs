@@ -1,0 +1,54 @@
+// let hf;
+
+// let memory = {};
+
+// if (existsSync('context.json')) {
+//   memory = JSON.parse(readFileSync('context.json', 'utf-8'));
+// }
+
+// function saveMemory() {
+//   writeFileSync('context.json', JSON.stringify(memory, null, 2));
+// }
+
+// function areResponsesSimilar(response1, response2) {
+//   return response1.trim().toLowerCase() === response2.trim().toLowerCase();
+// }
+
+// function modifyResponse(response) {
+//   return `I already explained this earlier, but here's a quick recap: ${response}`;
+// }
+
+// function updateMemory(userId, input, response, mood) {
+//   if (!memory[userId]) {
+//     memory[userId] = { messages: [], mood: mood || "neutral" };
+//   }
+
+//   const lastResponse = memory[userId].messages[memory[userId].messages.length - 1]?.response;
+//   if (lastResponse && areResponsesSimilar(response, lastResponse)) {
+//     response = modifyResponse(response);
+//   }
+
+//   memory[userId].messages.push({ input, response, timestamp: Date.now() });
+
+//   if (memory[userId].messages.length > config.memorySize) {
+//     memory[userId].messages.shift();
+//   }
+
+//   saveMemory();
+// }
+
+// function deleteMemory(userId = null) {
+//   if (userId) {
+//     if (memory[userId]) {
+//       delete memory[userId];
+//       console.log(`Memory for user ${userId} deleted.`);
+//     } else {
+//       console.log(`No memory found for user ${userId}.`);
+//     }
+//   } else {
+//     memory = {};
+//     console.log("[MODE-AI] All memory cleared.");
+//   }
+
+//   saveMemory();
+// }
